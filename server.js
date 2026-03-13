@@ -64,6 +64,25 @@ res.json(rows)
 })
 
 })
+app.post("/api/delete",(req,res)=>{
+
+ const {username}=req.body
+
+ db.run(
+  "DELETE FROM users WHERE username=?",
+  [username],
+  function(err){
+
+   if(err){
+    return res.json({success:false})
+   }
+
+   res.json({success:true})
+
+  }
+ )
+
+})
 
 const PORT = process.env.PORT || 3000
 
