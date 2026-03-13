@@ -63,7 +63,8 @@ username,
 password,
 balance:0,
 history:[],
-created_at:new Date()
+created_at:new Date(),
+kicked:false
 }])
 
 if(error){
@@ -92,6 +93,15 @@ const { data } = await supabase
 
 if(!data){
 return res.json({status:"fail"})
+}
+
+if(data.kicked){
+
+await supabase
+.from("users")
+.update({kicked:false})
+.eq("username",username)
+
 }
 
 res.json({
@@ -241,6 +251,24 @@ await supabase
 .eq("username",username)
 
 res.json({status:"deleted"})
+
+})
+
+
+// ======================
+// ADMIN KICK USER
+// ======================
+
+app.post("/admin/kick-user", async (req,res)=>{
+
+const { username } = req.body
+
+await supabase
+.from("users")
+.update({kicked:true})
+.eq("username",username)
+
+res.json({status:"kicked"})
 
 })
 
