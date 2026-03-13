@@ -63,8 +63,8 @@ username,
 password,
 balance:0,
 history:[],
-created_at:new Date(),
-kicked:false
+kicked:false,
+created_at:new Date()
 }])
 
 if(error){
@@ -93,15 +93,6 @@ const { data } = await supabase
 
 if(!data){
 return res.json({status:"fail"})
-}
-
-if(data.kicked){
-
-await supabase
-.from("users")
-.update({kicked:false})
-.eq("username",username)
-
 }
 
 res.json({
