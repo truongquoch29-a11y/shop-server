@@ -224,7 +224,22 @@ res.json({status:"deleted"})
 
 })
 
+const { error } = await supabase
+.from("users")
+.insert([
+{
+username,
+password,
+balance:0,
+history:[],
+created_at:new Date()
+}
+])
 
+if(error){
+console.log(error)
+return res.json({status:"error"})
+}
 
 // ======================
 // SERVER
