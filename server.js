@@ -1,125 +1,110 @@
 const express = require("express")
 const cors = require("cors")
-
 const { createClient } = require("@supabase/supabase-js")
 
 const app = express()
-
 app.use(cors())
 app.use(express.json())
 
-const supabase = createClient(
- "SUPABASE_URL",
- "SUPABASE_ANON_KEY"
-)
+// SUPABASE
+const SUPABASE_URL = process.env.SUPABASE_URL
+const SUPABASE_KEY = process.env.SUPABASE_KEY
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-app.get("/", (req,res)=>{
- res.send("server running")
+
+// TẠO TÀI KHOẢN
+app.post("/register", async (req, res) => {
+
+    const { username, password } = req.body
+
+    const { data: userExist } = await supabase
+        .from("users")
+        .select("*")
+        .eq("username", username)
+        .single()
+
+    if (userExist) {
+        return res.json({ status: "exist" })
+    }
+
+    const { error } = await supabase
+        .from("users")
+        .insert([
+            {
+                username: username,
+                password: password,
+                balance: 0
+            }
+        ])
+
+    if (error) {
+        return res.json({ status: "error" })
+    }
+
+    res.json({ status: "success" })
 })
 
 
-// REGISTER
-app.post("/register", async (req,res)=>{
+// ĐĂNG NHẬP
+app.post("/login", async (req, res) => {
 
- const {user,pass} = req.body
+    const { username, password } = req.body
 
- const {data:exist} = await supabase
- .from("users")
- .select("*")
- .eq("username",user)
+    const { data } = await supabase
+        .from("users")
+        .select("*")
+        .eq("username", username)
+        .eq("password", password)
+        .single()
 
- if(exist && exist.length>0){
-  return res.json({status:"exist"})
- }
+    if (!data) {
+        return res.json({ status: "fail" })
+    }
 
- const {error} = await supabase
- .from("users")
- .insert([
-  {username:user,password:pass,balance:0}
- ])
-
- if(error){
-  res.json({status:"error"})
- }else{
-  res.json({status:"ok"})
- }
-
+    res.json({
+        status: "success",
+        user: data
+    })
 })
 
 
-// LOGIN
-app.post("/login", async (req,res)=>{
+// LẤY SỐ DƯ
+app.get("/balance/:username", async (req, res) => {
 
- const {user,pass} = req.body
+    const username = req.params.username
 
- const {data} = await supabase
- .from("users")
- .select("*")
- .eq("username",user)
- .eq("password",pass)
+    const { data } = await supabase
+        .from("users")
+        .select("balance")
+        .eq("username", username)
+        .single()
 
- if(data && data.length>0){
-  res.json({
-   status:"ok",
-   balance:data[0].balance
-  })
- }else{
-  res.json({status:"error"})
- }
-
+    res.json(data)
 })
 
 
-// GET ALL USERS (ADMIN)
-app.get("/admin/users", async (req,res)=>{
+// ADMIN CỘNG TIỀN
+app.post("/add-money", async (req, res) => {
 
- const {data} = await supabase
- .from("users")
- .select("*")
+    const { username, amount } = req.body
 
- res.json(data)
+    const { data } = await supabase
+        .from("users")
+        .select("balance")
+        .eq("username", username)
+        .single()
 
+    const newBalance = data.balance + amount
+
+    await supabase
+        .from("users")
+        .update({ balance: newBalance })
+        .eq("username", username)
+
+    res.json({ status: "success", balance: newBalance })
 })
 
 
-// ADD MONEY
-app.post("/admin/add-money", async (req,res)=>{
-
- const {username,amount} = req.body
-
- const {data} = await supabase
- .from("users")
- .select("balance")
- .eq("username",username)
- .single()
-
- const newBalance = data.balance + amount
-
- await supabase
- .from("users")
- .update({balance:newBalance})
- .eq("username",username)
-
- res.json({status:"ok"})
-
-})
-
-
-// DELETE USER
-app.post("/admin/delete-user", async (req,res)=>{
-
- const {username} = req.body
-
- await supabase
- .from("users")
- .delete()
- .eq("username",username)
-
- res.json({status:"ok"})
-
-})
-
-
-app.listen(3000, ()=>{
- console.log("server running")
+app.listen(3000, () => {
+    console.log("Server running")
 })
