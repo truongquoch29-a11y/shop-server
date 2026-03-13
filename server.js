@@ -104,7 +104,59 @@ app.post("/add-money", async (req, res) => {
     res.json({ status: "success", balance: newBalance })
 })
 
+app.get("/admin/users", async (req,res)=>{
 
+const { data } = await supabase
+.from("users")
+.select("username")
+
+res.json(data)
+
+})
+
+
+
+app.get("/admin/user/:username", async (req,res)=>{
+
+const { data } = await supabase
+.from("users")
+.select("*")
+.eq("username",req.params.username)
+.single()
+
+res.json(data)
+
+})
+
+
+
+app.post("/admin/change-pass", async (req,res)=>{
+
+const { username,password } = req.body
+
+await supabase
+.from("users")
+.update({password})
+.eq("username",username)
+
+res.json({status:"ok"})
+
+})
+
+
+
+app.post("/admin/delete-user", async (req,res)=>{
+
+const { username } = req.body
+
+await supabase
+.from("users")
+.delete()
+.eq("username",username)
+
+res.json({status:"deleted"})
+
+})
 app.listen(3000, () => {
     console.log("Server running")
 })
