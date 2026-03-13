@@ -95,13 +95,17 @@ if(!data){
 return res.json({status:"fail"})
 }
 
+await supabase
+.from("users")
+.update({kicked:false})
+.eq("username",username)
+
 res.json({
 status:"success",
 user:data
 })
 
 })
-
 
 // ======================
 // USER INFO
