@@ -56,7 +56,13 @@ app.post("/api/login",(req,res)=>{
 
 })
 
+app.get("/api/users",(req,res)=>{
 
+db.all("SELECT * FROM users",(err,rows)=>{
+res.json(rows)
+})
+
+})
 
 const PORT = process.env.PORT || 3000
 
