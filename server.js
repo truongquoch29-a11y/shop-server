@@ -21,7 +21,8 @@ app.post("/api/register",(req,res)=>{
   function(err){
 
    if(err){
-    return res.json({success:false})
+    console.log(err)   // in lỗi ra log
+    return res.json({success:false,error:err.message})
    }
 
    res.json({success:true})
