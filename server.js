@@ -267,7 +267,9 @@ res.json({status:"kicked"})
 
 })
 
-
+app.get("/", (req,res)=>{
+res.send("server online")
+})
 // ======================
 // SERVER
 // ======================
