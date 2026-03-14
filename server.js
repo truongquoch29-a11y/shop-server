@@ -173,9 +173,9 @@ content
 if(error){
 return res.json({status:"error"})
 }
-
 res.json({
 status:"success",
+id:data.id,
 content,
 amount
 })
@@ -387,7 +387,25 @@ await supabase
 res.json({status:"deleted"})
 
 })
+// ======================
+// DEPOSIT STATUS
+// ======================
 
+app.get("/deposit-status/:id", async (req,res)=>{
+
+const { data } = await supabase
+.from("deposits")
+.select("status")
+.eq("id",req.params.id)
+.maybeSingle()
+
+if(!data){
+return res.json({status:"deleted"})
+}
+
+res.json({status:data.status})
+
+})
 // ======================
 // SERVER
 // ======================
