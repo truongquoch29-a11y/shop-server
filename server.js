@@ -60,11 +60,7 @@ const { error } = await supabase
 .from("users")
 .insert([{
 username,
-password,
-balance:0,
-history:[],
-kicked:false,
-created_at:new Date()
+password
 }])
 
 if(error){
@@ -107,6 +103,7 @@ user:data
 
 })
 
+
 // ======================
 // USER INFO
 // ======================
@@ -145,6 +142,105 @@ return res.json({balance:0})
 }
 
 res.json(data)
+
+})
+
+
+// ======================
+// CREATE DEPOSIT
+// ======================
+
+app.post("/deposit", async (req,res)=>{
+
+const { username,amount } = req.body
+
+if(!username || !amount){
+return res.json({status:"error"})
+}
+
+const content = "NAP_" + username + "_" + Date.now()
+
+const { data,error } = await supabase
+.from("deposits")
+.insert([{
+username,
+amount,
+content
+}])
+.select()
+.single()
+
+if(error){
+return res.json({status:"error"})
+}
+
+res.json({
+status:"success",
+content,
+amount
+})
+
+})
+
+
+// ======================
+// DEPOSIT HISTORY
+// ======================
+
+app.get("/deposit/:username", async (req,res)=>{
+
+const { data } = await supabase
+.from("deposits")
+.select("*")
+.eq("username",req.params.username)
+.order("created_at",{ascending:false})
+
+res.json(data)
+
+})
+
+
+// ======================
+// CONFIRM DEPOSIT (BOT)
+// ======================
+
+app.post("/deposit/confirm", async (req,res)=>{
+
+const { content } = req.body
+
+const { data:deposit } = await supabase
+.from("deposits")
+.select("*")
+.eq("content",content)
+.maybeSingle()
+
+if(!deposit){
+return res.json({status:"fail"})
+}
+
+if(deposit.status === "success"){
+return res.json({status:"done"})
+}
+
+const { data:user } = await supabase
+.from("users")
+.select("balance")
+.eq("username",deposit.username)
+.maybeSingle()
+
+const newBalance = Number(user.balance) + Number(deposit.amount)
+
+await supabase
+.from("users")
+.update({balance:newBalance})
+.eq("username",deposit.username)
+
+await supabase
+.from("deposits")
+.update({status:"success"})
+.eq("content",content)
+
+res.json({status:"success"})
 
 })
 
@@ -267,9 +363,16 @@ res.json({status:"kicked"})
 
 })
 
+
+// ======================
+// SERVER STATUS
+// ======================
+
 app.get("/", (req,res)=>{
 res.send("server online")
 })
+
+
 // ======================
 // SERVER
 // ======================
