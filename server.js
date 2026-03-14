@@ -165,7 +165,8 @@ const { data,error } = await supabase
 .insert([{
 username,
 amount,
-content
+content,
+status:"pending"
 }])
 .select()
 .single()
