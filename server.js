@@ -371,7 +371,22 @@ res.json({status:"kicked"})
 app.get("/", (req,res)=>{
 res.send("server online")
 })
+// ======================
+// DELETE DEPOSIT
+// ======================
 
+app.post("/delete-deposit", async (req,res)=>{
+
+const { content } = req.body
+
+await supabase
+.from("deposits")
+.delete()
+.eq("content",content)
+
+res.json({status:"deleted"})
+
+})
 
 // ======================
 // SERVER
