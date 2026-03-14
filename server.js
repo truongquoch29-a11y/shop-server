@@ -174,6 +174,7 @@ status:"pending"
 if(error){
 return res.json({status:"error"})
 }
+
 res.json({
 status:"success",
 id:data.id,
@@ -202,7 +203,7 @@ res.json(data)
 
 
 // ======================
-// CONFIRM DEPOSIT (BOT)
+// CONFIRM DEPOSIT
 // ======================
 
 app.post("/deposit/confirm", async (req,res)=>{
@@ -242,9 +243,8 @@ await supabase
 .eq("content",content)
 
 res.json({status:"success"})
+
 })
-
-
 
 
 // ======================
@@ -331,15 +331,22 @@ res.json({status:"ok"})
 
 
 // ======================
-// ADMIN DELETE USER
+// ADMIN DELETE USER (SỬA)
 // ======================
 
 app.post("/admin/delete-user", async (req,res)=>{
 
 const { username } = req.body
 
+// xoá user
 await supabase
 .from("users")
+.delete()
+.eq("username",username)
+
+// xoá toàn bộ lịch sử nạp
+await supabase
+.from("deposits")
 .delete()
 .eq("username",username)
 
@@ -373,6 +380,8 @@ res.json({status:"kicked"})
 app.get("/", (req,res)=>{
 res.send("server online")
 })
+
+
 // ======================
 // DELETE DEPOSIT
 // ======================
@@ -389,6 +398,8 @@ await supabase
 res.json({status:"deleted"})
 
 })
+
+
 // ======================
 // DEPOSIT STATUS
 // ======================
@@ -408,6 +419,8 @@ return res.json({status:"deleted"})
 res.json({status:data.status})
 
 })
+
+
 // ======================
 // SERVER
 // ======================
