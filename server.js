@@ -1,10 +1,12 @@
-const express = require("express")  
-const cors = require("cors")  
-const fs = require("fs")  
-const multer = require("multer")  
-const Tesseract = require("tesseract.js")  
-const fetch = require("node-fetch")  
-const { createClient } = require("@supabase/supabase-js")  const app = express()
+const express = require("express")
+const cors = require("cors")
+const fs = require("fs")
+const multer = require("multer")
+const Tesseract = require("tesseract.js")
+const fetch = require("node-fetch")
+const { createClient } = require("@supabase/supabase-js")
+
+const app = express()
 
 app.use(cors())
 app.use(express.json())
@@ -256,7 +258,6 @@ const result = await Tesseract.recognize(path,"eng")
 
 const text = result.data.text.toLowerCase()
 
-// kiểm tra ảnh VCB
 const isVCB =
 text.includes("vietcombank") ||
 text.includes("vcb") ||
@@ -267,13 +268,11 @@ if(!isVCB){
 fs.unlinkSync(path)
 
 return res.json({
-status:"fail",
-msg:"Không phải giao dịch Vietcombank"
+status:"fail"
 })
 
 }
 
-// tìm nội dung chuyển khoản
 const contentMatch = text.match(/nap_[a-z0-9_]+_[0-9]+/)
 
 if(!contentMatch){
@@ -293,7 +292,6 @@ const timestamp = Number(parts[2])
 
 const now = Date.now()
 
-// kiểm tra ±2 phút
 if(Math.abs(now - timestamp) > 120000){
 
 fs.unlinkSync(path)
@@ -304,7 +302,6 @@ status:"timeout"
 
 }
 
-// xác nhận deposit
 await fetch(process.env.SERVER_URL + "/deposit/confirm",{
 method:"POST",
 headers:{
@@ -488,8 +485,8 @@ app.get("/",(req,res)=>{
 res.send("server online")
 })
 
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 10000
 
-app.listen(PORT,()=>{
+app.listen(PORT,"0.0.0.0",()=>{
 console.log("Server running on port "+PORT)
 })
