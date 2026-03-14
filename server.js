@@ -244,41 +244,7 @@ await supabase
 res.json({status:"success"})
 })
 
-const { data:deposit } = await supabase
-.from("deposits")
-.select("*")
-.eq("content",content)
-.maybeSingle()
 
-if(!deposit){
-return res.json({status:"fail"})
-}
-
-if(deposit.status === "success"){
-return res.json({status:"done"})
-}
-
-const { data:user } = await supabase
-.from("users")
-.select("balance")
-.eq("username",deposit.username)
-.maybeSingle()
-
-const newBalance = Number(user.balance) + Number(deposit.amount)
-
-await supabase
-.from("users")
-.update({balance:newBalance})
-.eq("username",deposit.username)
-
-await supabase
-.from("deposits")
-.update({status:"success"})
-.eq("content",content)
-
-res.json({status:"success"})
-
-})
 
 
 // ======================
