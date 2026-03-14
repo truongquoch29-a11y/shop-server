@@ -1,11 +1,17 @@
 const express = require("express")
 const cors = require("cors")
+const fs = require("fs")
+const multer = require("multer")
+const Tesseract = require("tesseract.js")
+const fetch = require("node-fetch")
 const { createClient } = require("@supabase/supabase-js")
 
 const app = express()
 
 app.use(cors())
 app.use(express.json())
+
+const upload = multer({ dest: "uploads/" })
 
 // ======================
 // SUPABASE
@@ -248,6 +254,90 @@ res.json({status:"success"})
 
 
 // ======================
+// UPLOAD BANK IMAGE
+// ======================
+
+app.post("/upload-deposit", upload.single("image"), async (req,res)=>{
+
+try{
+
+const path = req.file.path
+
+const result = await Tesseract.recognize(path,"eng")
+
+const text = result.data.text.toLowerCase()
+
+// kiểm tra ảnh VCB
+const isVCB =
+text.includes("vietcombank") ||
+text.includes("vcb") ||
+text.includes("digibank")
+
+if(!isVCB){
+
+fs.unlinkSync(path)
+
+return res.json({
+status:"fail",
+msg:"Không phải giao dịch Vietcombank"
+})
+
+}
+
+// tìm nội dung chuyển khoản
+const contentMatch = text.match(/nap_[a-z0-9_]+_[0-9]+/)
+
+if(!contentMatch){
+
+fs.unlinkSync(path)
+
+return res.json({
+status:"fail"
+})
+
+}
+
+const content = contentMatch[0].toUpperCase()
+
+const parts = content.split("_")
+const timestamp = Number(parts[2])
+
+const now = Date.now()
+
+// kiểm tra ±2 phút
+if(Math.abs(now - timestamp) > 120000){
+
+fs.unlinkSync(path)
+
+return res.json({
+status:"timeout"
+})
+
+}
+
+// xác nhận deposit
+await fetch(process.env.SERVER_URL + "/deposit/confirm",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({content})
+})
+
+fs.unlinkSync(path)
+
+res.json({status:"success"})
+
+}catch(e){
+
+res.json({status:"error"})
+
+}
+
+})
+
+
+// ======================
 // ADMIN USERS
 // ======================
 
@@ -331,20 +421,18 @@ res.json({status:"ok"})
 
 
 // ======================
-// ADMIN DELETE USER (SỬA)
+// ADMIN DELETE USER
 // ======================
 
 app.post("/admin/delete-user", async (req,res)=>{
 
 const { username } = req.body
 
-// xoá user
 await supabase
 .from("users")
 .delete()
 .eq("username",username)
 
-// xoá toàn bộ lịch sử nạp
 await supabase
 .from("deposits")
 .delete()
@@ -370,15 +458,6 @@ await supabase
 
 res.json({status:"kicked"})
 
-})
-
-
-// ======================
-// SERVER STATUS
-// ======================
-
-app.get("/", (req,res)=>{
-res.send("server online")
 })
 
 
@@ -425,9 +504,12 @@ res.json({status:data.status})
 // SERVER
 // ======================
 
+app.get("/",(req,res)=>{
+res.send("server online")
+})
+
 const PORT = process.env.PORT || 3000
 
 app.listen(PORT,()=>{
-console.log("Server running on port " + PORT)
+console.log("Server running on port "+PORT)
 })
-require("./bot")
