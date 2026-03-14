@@ -245,18 +245,24 @@ res.json({status:"success"})
 })
 
 // ======================
-// UPLOAD BANK IMAGE
+// UPLOAD BANK IMAGE (BOT OCR ADVANCED)
 // ======================
 
 app.post("/upload-deposit", upload.single("image"), async (req,res)=>{
 
 try{
 
+if(!req.file){
+return res.json({status:"noimage"})
+}
+
 const path = req.file.path
 
 const result = await Tesseract.recognize(path,"eng")
 
 const text = result.data.text.toLowerCase()
+
+// CHECK VIETCOMBANK
 
 const isVCB =
 text.includes("vietcombank") ||
@@ -267,28 +273,30 @@ if(!isVCB){
 
 fs.unlinkSync(path)
 
-return res.json({
-status:"fail"
-})
+return res.json({status:"fail"})
 
 }
 
-const contentMatch = text.match(/nap_[a-z0-9_]+_[0-9]+/)
+// FIND CONTENT (flexible OCR)
 
-if(!contentMatch){
+const contentRegex = /nap[\s_\-]*([a-z0-9]+)[\s_\-]*([0-9]{10,})/
+
+const match = text.match(contentRegex)
+
+if(!match){
 
 fs.unlinkSync(path)
 
-return res.json({
-status:"fail"
-})
+return res.json({status:"fail"})
 
 }
 
-const content = contentMatch[0].toUpperCase()
+const username = match[1]
+const timestamp = Number(match[2])
 
-const parts = content.split("_")
-const timestamp = Number(parts[2])
+const content = "NAP_" + username + "_" + timestamp
+
+// CHECK TIME ±2 MINUTES
 
 const now = Date.now()
 
@@ -296,11 +304,27 @@ if(Math.abs(now - timestamp) > 120000){
 
 fs.unlinkSync(path)
 
-return res.json({
-status:"timeout"
-})
+return res.json({status:"timeout"})
 
 }
+
+// CHECK DEPOSIT EXISTS
+
+const { data:deposit } = await supabase
+.from("deposits")
+.select("*")
+.eq("content",content)
+.maybeSingle()
+
+if(!deposit){
+
+fs.unlinkSync(path)
+
+return res.json({status:"notfound"})
+
+}
+
+// CONFIRM DEPOSIT
 
 await fetch(process.env.SERVER_URL + "/deposit/confirm",{
 method:"POST",
