@@ -267,7 +267,6 @@ const result = await Tesseract.recognize(path,"eng")
 
 const text = result.data.text.toLowerCase()
 
-// kiểm tra ảnh VCB
 const isVCB =
 text.includes("vietcombank") ||
 text.includes("vcb") ||
@@ -284,38 +283,17 @@ msg:"Không phải giao dịch Vietcombank"
 
 }
 
-// tìm nội dung chuyển khoản
 const contentMatch = text.match(/nap_[a-z0-9_]+_[0-9]+/)
 
 if(!contentMatch){
 
 fs.unlinkSync(path)
 
-return res.json({
-status:"fail"
-})
-
+return res.json({status:"fail"})
 }
 
 const content = contentMatch[0].toUpperCase()
 
-const parts = content.split("_")
-const timestamp = Number(parts[2])
-
-const now = Date.now()
-
-// kiểm tra ±2 phút
-if(Math.abs(now - timestamp) > 120000){
-
-fs.unlinkSync(path)
-
-return res.json({
-status:"timeout"
-})
-
-}
-
-// xác nhận deposit
 await fetch(process.env.SERVER_URL + "/deposit/confirm",{
 method:"POST",
 headers:{
@@ -353,74 +331,6 @@ res.json(data)
 
 
 // ======================
-// ADMIN USER DETAIL
-// ======================
-
-app.get("/admin/user/:username", async (req,res)=>{
-
-const { data } = await supabase
-.from("users")
-.select("*")
-.eq("username",req.params.username)
-.maybeSingle()
-
-res.json(data)
-
-})
-
-
-// ======================
-// ADMIN ADD MONEY
-// ======================
-
-app.post("/admin/add-money", async (req,res)=>{
-
-const { username,amount } = req.body
-
-const { data } = await supabase
-.from("users")
-.select("balance")
-.eq("username",username)
-.maybeSingle()
-
-if(!data){
-return res.json({status:"fail"})
-}
-
-const newBalance = Number(data.balance) + Number(amount)
-
-await supabase
-.from("users")
-.update({balance:newBalance})
-.eq("username",username)
-
-res.json({
-status:"success",
-balance:newBalance
-})
-
-})
-
-
-// ======================
-// ADMIN CHANGE PASSWORD
-// ======================
-
-app.post("/admin/change-pass", async (req,res)=>{
-
-const { username,password } = req.body
-
-await supabase
-.from("users")
-.update({password})
-.eq("username",username)
-
-res.json({status:"ok"})
-
-})
-
-
-// ======================
 // ADMIN DELETE USER
 // ======================
 
@@ -437,42 +347,6 @@ await supabase
 .from("deposits")
 .delete()
 .eq("username",username)
-
-res.json({status:"deleted"})
-
-})
-
-
-// ======================
-// ADMIN KICK USER
-// ======================
-
-app.post("/admin/kick-user", async (req,res)=>{
-
-const { username } = req.body
-
-await supabase
-.from("users")
-.update({kicked:true})
-.eq("username",username)
-
-res.json({status:"kicked"})
-
-})
-
-
-// ======================
-// DELETE DEPOSIT
-// ======================
-
-app.post("/delete-deposit", async (req,res)=>{
-
-const { content } = req.body
-
-await supabase
-.from("deposits")
-.delete()
-.eq("content",content)
 
 res.json({status:"deleted"})
 
@@ -507,127 +381,7 @@ res.json({status:data.status})
 app.get("/",(req,res)=>{
 res.send("server online")
 })
-const express = require("express")
-const cors = require("cors")
-const { createClient } = require("@supabase/supabase-js")
 
-const app = express()
-
-app.use(cors())
-app.use(express.json())
-
-const supabase = createClient(
-process.env.SUPABASE_URL,
-process.env.SUPABASE_KEY
-)
-
-// ======================
-// TẠO GIAO DỊCH NẠP
-// ======================
-
-app.post("/deposit", async (req,res)=>{
-
-try{
-
-const {username,amount} = req.body
-
-if(!username || !amount){
-return res.json({status:"fail"})
-}
-
-const content = "NAP_"+username+"_"+Date.now()
-
-const {data,error} = await supabase
-.from("deposits")
-.insert([
-{
-username,
-amount,
-content,
-status:"pending",
-created_at:new Date()
-}
-])
-.select()
-.single()
-
-if(error){
-return res.json({status:"fail"})
-}
-
-res.json({
-status:"success",
-id:data.id,
-content:data.content
-})
-
-}catch{
-res.json({status:"error"})
-}
-
-})
-
-// ======================
-// CHECK TRẠNG THÁI
-// ======================
-
-app.get("/deposit-status/:id", async (req,res)=>{
-
-try{
-
-const id=req.params.id
-
-const {data} = await supabase
-.from("deposits")
-.select("status")
-.eq("id",id)
-.single()
-
-if(!data){
-return res.json({status:"deleted"})
-}
-
-res.json({status:data.status})
-
-}catch{
-res.json({status:"error"})
-}
-
-})
-
-// ======================
-// LẤY USER
-// ======================
-
-app.get("/user/:username", async (req,res)=>{
-
-try{
-
-const username=req.params.username
-
-const {data} = await supabase
-.from("users")
-.select("*")
-.eq("username",username)
-.single()
-
-if(!data){
-return res.json({status:"deleted"})
-}
-
-res.json(data)
-
-}catch{
-res.json({status:"error"})
-}
-
-})
-
-const PORT = process.env.PORT || 3000
-
-app.listen(PORT,()=>{
-console.log("Server running")
-})
 const PORT = process.env.PORT || 3000
 
 app.listen(PORT,()=>{
