@@ -1,12 +1,10 @@
-const express = require("express")
-const cors = require("cors")
-const fs = require("fs")
-const multer = require("multer")
-const Tesseract = require("tesseract.js")
-const fetch = require("node-fetch")
-const { createClient } = require("@supabase/supabase-js")
-
-const app = express()
+const express = require("express")  
+const cors = require("cors")  
+const fs = require("fs")  
+const multer = require("multer")  
+const Tesseract = require("tesseract.js")  
+const fetch = require("node-fetch")  
+const { createClient } = require("@supabase/supabase-js")  const app = express()
 
 app.use(cors())
 app.use(express.json())
@@ -21,7 +19,6 @@ const supabase = createClient(
 process.env.SUPABASE_URL,
 process.env.SUPABASE_KEY
 )
-
 
 // ======================
 // ADMIN LOGIN
@@ -38,7 +35,6 @@ return res.json({success:true})
 res.json({success:false})
 
 })
-
 
 // ======================
 // REGISTER
@@ -77,7 +73,6 @@ res.json({status:"success"})
 
 })
 
-
 // ======================
 // LOGIN
 // ======================
@@ -109,7 +104,6 @@ user:data
 
 })
 
-
 // ======================
 // USER INFO
 // ======================
@@ -130,7 +124,6 @@ res.json(data)
 
 })
 
-
 // ======================
 // BALANCE
 // ======================
@@ -150,7 +143,6 @@ return res.json({balance:0})
 res.json(data)
 
 })
-
 
 // ======================
 // CREATE DEPOSIT
@@ -190,7 +182,6 @@ amount
 
 })
 
-
 // ======================
 // DEPOSIT HISTORY
 // ======================
@@ -206,7 +197,6 @@ const { data } = await supabase
 res.json(data)
 
 })
-
 
 // ======================
 // CONFIRM DEPOSIT
@@ -252,7 +242,6 @@ res.json({status:"success"})
 
 })
 
-
 // ======================
 // UPLOAD BANK IMAGE
 // ======================
@@ -267,6 +256,7 @@ const result = await Tesseract.recognize(path,"eng")
 
 const text = result.data.text.toLowerCase()
 
+// kiểm tra ảnh VCB
 const isVCB =
 text.includes("vietcombank") ||
 text.includes("vcb") ||
@@ -283,17 +273,38 @@ msg:"Không phải giao dịch Vietcombank"
 
 }
 
+// tìm nội dung chuyển khoản
 const contentMatch = text.match(/nap_[a-z0-9_]+_[0-9]+/)
 
 if(!contentMatch){
 
 fs.unlinkSync(path)
 
-return res.json({status:"fail"})
+return res.json({
+status:"fail"
+})
+
 }
 
 const content = contentMatch[0].toUpperCase()
 
+const parts = content.split("_")
+const timestamp = Number(parts[2])
+
+const now = Date.now()
+
+// kiểm tra ±2 phút
+if(Math.abs(now - timestamp) > 120000){
+
+fs.unlinkSync(path)
+
+return res.json({
+status:"timeout"
+})
+
+}
+
+// xác nhận deposit
 await fetch(process.env.SERVER_URL + "/deposit/confirm",{
 method:"POST",
 headers:{
@@ -314,7 +325,6 @@ res.json({status:"error"})
 
 })
 
-
 // ======================
 // ADMIN USERS
 // ======================
@@ -329,6 +339,70 @@ res.json(data)
 
 })
 
+// ======================
+// ADMIN USER DETAIL
+// ======================
+
+app.get("/admin/user/:username", async (req,res)=>{
+
+const { data } = await supabase
+.from("users")
+.select("*")
+.eq("username",req.params.username)
+.maybeSingle()
+
+res.json(data)
+
+})
+
+// ======================
+// ADMIN ADD MONEY
+// ======================
+
+app.post("/admin/add-money", async (req,res)=>{
+
+const { username,amount } = req.body
+
+const { data } = await supabase
+.from("users")
+.select("balance")
+.eq("username",username)
+.maybeSingle()
+
+if(!data){
+return res.json({status:"fail"})
+}
+
+const newBalance = Number(data.balance) + Number(amount)
+
+await supabase
+.from("users")
+.update({balance:newBalance})
+.eq("username",username)
+
+res.json({
+status:"success",
+balance:newBalance
+})
+
+})
+
+// ======================
+// ADMIN CHANGE PASSWORD
+// ======================
+
+app.post("/admin/change-pass", async (req,res)=>{
+
+const { username,password } = req.body
+
+await supabase
+.from("users")
+.update({password})
+.eq("username",username)
+
+res.json({status:"ok"})
+
+})
 
 // ======================
 // ADMIN DELETE USER
@@ -352,6 +426,39 @@ res.json({status:"deleted"})
 
 })
 
+// ======================
+// ADMIN KICK USER
+// ======================
+
+app.post("/admin/kick-user", async (req,res)=>{
+
+const { username } = req.body
+
+await supabase
+.from("users")
+.update({kicked:true})
+.eq("username",username)
+
+res.json({status:"kicked"})
+
+})
+
+// ======================
+// DELETE DEPOSIT
+// ======================
+
+app.post("/delete-deposit", async (req,res)=>{
+
+const { content } = req.body
+
+await supabase
+.from("deposits")
+.delete()
+.eq("content",content)
+
+res.json({status:"deleted"})
+
+})
 
 // ======================
 // DEPOSIT STATUS
@@ -372,7 +479,6 @@ return res.json({status:"deleted"})
 res.json({status:data.status})
 
 })
-
 
 // ======================
 // SERVER
