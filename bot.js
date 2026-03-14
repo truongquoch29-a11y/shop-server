@@ -1,57 +1,104 @@
+const { createClient } = require("@supabase/supabase-js")
 const Tesseract = require("tesseract.js")
 const fs = require("fs")
-const fetch = require("node-fetch")
 
-const SERVER = process.env.SERVER_URL
+const supabase = createClient(
+process.env.SUPABASE_URL,
+process.env.SUPABASE_KEY
+)
 
-async function verifyImage(path){
+// ======================
+// HÀM KIỂM TRA ẢNH
+// ======================
 
-try{
+async function checkImage(path){
 
 const result = await Tesseract.recognize(path,"eng")
 
-const text = result.data.text.toLowerCase()
+return result.data.text.toLowerCase()
+
+}
+
+// ======================
+// BOT LOOP
+// ======================
+
+async function runBot(){
+
+while(true){
+
+try{
+
+const {data:deposits} = await supabase
+.from("deposits")
+.select("*")
+.eq("status","pending")
+
+if(deposits){
+
+for(const d of deposits){
+
+if(!d.image_path) continue
+
+const text = await checkImage(d.image_path)
+
+// kiểm tra VCB
 
 const isVCB =
 text.includes("vietcombank") ||
 text.includes("vcb") ||
 text.includes("digibank")
 
-if(!isVCB){
-return {status:"fail"}
+if(!isVCB) continue
+
+// kiểm tra nội dung
+
+if(!text.includes(d.content.toLowerCase())) continue
+
+// kiểm tra số tiền
+
+if(!text.includes(String(d.amount))) continue
+
+// kiểm tra thời gian ±2 phút
+
+const time = new Date(d.created_at).getTime()
+
+if(Math.abs(Date.now()-time) > 120000) continue
+
+// cộng tiền
+
+const {data:user} = await supabase
+.from("users")
+.select("balance")
+.eq("username",d.username)
+.single()
+
+const newBalance = Number(user.balance)+Number(d.amount)
+
+await supabase
+.from("users")
+.update({balance:newBalance})
+.eq("username",d.username)
+
+// cập nhật trạng thái
+
+await supabase
+.from("deposits")
+.update({status:"success"})
+.eq("id",d.id)
+
+fs.unlinkSync(d.image_path)
+
 }
 
-const contentMatch = text.match(/nap_[a-z0-9_]+_[0-9]+/)
-
-if(!contentMatch){
-return {status:"fail"}
 }
 
-const content = contentMatch[0].toUpperCase()
+}catch{}
 
-const parts = content.split("_")
-const timestamp = Number(parts[2])
+await new Promise(r=>setTimeout(r,20000))
 
-const now = Date.now()
-
-if(Math.abs(now - timestamp) > 120000){
-return {status:"timeout"}
-}
-
-await fetch(SERVER+"/deposit/confirm",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({content})
-})
-
-return {status:"success"}
-
-}catch{
-return {status:"error"}
 }
 
 }
 
-module.exports={verifyImage}
+runBot()
